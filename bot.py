@@ -5,6 +5,7 @@ import threading
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from trader_agent import verify_credentials as verify_credentials_alpaca
+import requests
 
 load_dotenv()
 
@@ -74,6 +75,21 @@ def process_ticker_step(message, trader):
         bot.register_next_step_handler(msg, process_ticker_step,trader)
         return
     
+    response = requests.post("http://127.0.0.1:8000/check_ticker/", json={"ticker": ticker})
+    if response.status_code == 200:
+        response_body = response.json()
+        # Check if the status field in the response body indicates a failure
+        if response_body.get('status') != 200:
+            msg = bot.reply_to(message, "Ticker not found or is invalid. Please enter a valid ticker:")
+            bot.register_next_step_handler(msg, process_ticker_step, trader)
+            return
+    else:
+        # Handle unexpected status codes
+        msg = bot.reply_to(message, "There was an error processing your request. Please try again.")
+        bot.register_next_step_handler(msg, process_ticker_step, trader)
+        return
+    
+
     trader.ticker = ticker
 
     # If the ticker is valid, proceed to ask for the start time
@@ -121,6 +137,7 @@ def start(message):
         ask_for_ticker(message, trader)
     else:
         bot.reply_to(message, "Please initialize your credentials first with /init.")
+
 
 
 def start_bot():
