@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from trader_agent import verify_credentials as verify_credentials_alpaca
 import requests
 
+BASE_URL = "https://paper-api.alpaca.markets"
 load_dotenv()
 
 # Set your tokens here
@@ -40,8 +41,24 @@ def process_api_key_step(message):
     bot.register_next_step_handler(msg, process_api_secret_step, api_key)
 
 def verify_credentials(api_key, api_secret):
-    status = verify_credentials_alpaca({'api_key': api_key, 'api_secret': api_secret}).get('status')
-    return status == 200
+    # Define the URL for your FastAPI endpoint
+    url = BASE_URL + "/verifycredentials/"
+
+    # Prepare the data to send in the POST request
+    data = {'api_key': api_key, 'api_secret': api_secret}
+
+    # Make the POST request and capture the response
+    response = requests.post(url, json=data)
+
+    # Check if the request was successful
+    if response.status_code == 200:
+        response_body = response.json()
+        # Check the 'status' field in the response
+        return response_body.get('status') == 200
+
+    # Handle failure cases
+    return False
+
 
 def process_api_secret_step(message, api_key):
     chat_id = message.chat.id
