@@ -1,0 +1,10 @@
+pydantic
+fastapi
+alpaca_trade_api
+yfinance
+telebot
+os
+time
+threading
+datetime
+dotenv

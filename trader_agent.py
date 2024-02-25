@@ -1,12 +1,17 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import alpaca_trade_api as tradeapi
+import yfinance as yf
 
 app = FastAPI()
 
 class Credentials(BaseModel):
     api_key: str
     api_secret: str
+
+class Ticker(BaseModel):
+    ticker: str
+
 
 @app.get("/")
 async def root():
@@ -22,3 +27,15 @@ async def verify_credentials(credentials: Credentials):
         return {"message": "Credentials verified, account is active and not restricted from trading."}
     except Exception as e:
         raise HTTPException(status_code=403, detail="Failed to verify credentials or account status.")
+
+
+@app.post("/check_ticker/")
+async def check_ticker(request_body: Ticker):
+    try:
+        existingTicker = yf.Ticker(request_body.ticker)
+        hist = existingTicker.history(period="1d")
+        if hist.empty: 
+            return {"status": 404, "message": "Ticker not found"}
+        return {"status": 200, "message": "Ticker exists"}
+    except Exception as e:
+        return {"status": 500, "message": "Internal server error"}
