@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import alpaca_trade_api as tradeapi
+from alpaca_trade_api.rest import APIError
 
 app = FastAPI()
 
@@ -13,12 +14,14 @@ async def root():
     return {"message": "Hello World"}
 
 @app.post("/verifycredentials/")
-async def verify_credentials(credentials: Credentials):
-    api = tradeapi.REST(credentials.api_key, credentials.api_secret, base_url="https://paper-api.alpaca.markets")
+async def verify_credentials(request_body: Credentials):
     try:
+        api = tradeapi.REST(request_body.api_key, request_body.api_secret, base_url="https://paper-api.alpaca.markets")
         account = api.get_account()
-        if account.trading_blocked:
-            raise HTTPException(status_code=403, detail="Account is currently restricted from trading.")
-        return {"message": "Credentials verified, account is active and not restricted from trading."}
+        # If the account information is successfully retrieved, return a success message
+        return {"message": "Credentials verified, account is active and not restricted from trading.",
+                "status": 200}
     except Exception as e:
-        raise HTTPException(status_code=403, detail="Failed to verify credentials or account status.")
+        return {"message": "Invalid credentials or access forbidden.", 
+                "status": 404}
+    

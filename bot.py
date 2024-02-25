@@ -4,6 +4,7 @@ import os
 import threading
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from trader_agent import verify_credentials as verify_credentials_alpaca
 
 load_dotenv()
 
@@ -38,9 +39,8 @@ def process_api_key_step(message):
     bot.register_next_step_handler(msg, process_api_secret_step, api_key)
 
 def verify_credentials(api_key, api_secret):
-    if api_key == "1" and api_secret == "2":
-        return True
-    return False
+    status = verify_credentials_alpaca({'api_key': api_key, 'api_secret': api_secret}).get('status')
+    return status == 200
 
 def process_api_secret_step(message, api_key):
     chat_id = message.chat.id
