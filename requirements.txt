@@ -1,9 +1,8 @@
-pydantic
 fastapi
-alpaca_trade_api
-yfinance
-telebot
+pydantic
 python-dotenv
-requests
+alpaca-trade-api
+yfinance
 lumibot
-timedelta
+python-telegram-bot
+requests

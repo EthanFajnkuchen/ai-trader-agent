@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 import requests
 
 load_dotenv()
-BASE_URL = os.getenv("BASE_URL")
 
 # Set your tokens here
 bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"))
@@ -38,15 +37,11 @@ def process_api_key_step(message):
     msg = bot.send_message(chat_id, "Very good!\nNow, please enter your API-Secret:")
     bot.register_next_step_handler(msg, process_api_secret_step, api_key)
 
-def verify_credentials(api_key, api_secret):
+def verify_credentials(api_key, api_secret, chat_id):
     # Define the URL for your FastAPI endpoint
-    url = BASE_URL + "/verifyandstorecredentials/"
-
-    # Prepare the data to send in the POST request
-    data = {'api_key': api_key, 'api_secret': api_secret}
 
     # Make the POST request and capture the response
-    response = requests.post(url, json=data)
+    response = requests.post("http://127.0.0.1:8000/verifyandstorecredentials/", json={"chat_id": str(chat_id), 'api_key': api_key, 'api_secret': api_secret})
 
     # Check if the request was successful
     if response.status_code == 200:
@@ -63,18 +58,36 @@ def process_api_secret_step(message, api_key):
     api_secret = message.text
     bot.send_message(chat_id, "Thank you! Your API credentials have been received.")
 
-    if verify_credentials(api_key, api_secret):
+    if verify_credentials(api_key, api_secret, chat_id):
         trader = BotParameters(chat_id, api_key, api_secret)
         list_traders.append(trader)
         bot.send_message(chat_id, "Credentials verified! To start your trading agent, please type /start 🚀")
     else:
         bot.send_message(chat_id, "Wrong credentials ❌\nPlease initiate the setup again with /init.")
 
+def check_user_credentials(chat_id):
+    # Construct the URL for the FastAPI endpoint
+    url = f"http://127.0.0.1:8000/checkcredentials/{chat_id}"
+    
+    # Make the GET request and capture the response
+    response = requests.get(url)
+    response_body = response.json()
+    print(response_body)
+    
+    # Check if the request was successful and the credentials exist
+    if response_body['status'] == 200:
+        print('go')
+
+        return True  
+    return False  # No credentials found or an error occurred
 
 @bot.message_handler(commands=['init'])
 def init(message):
-    ask_for_api_key(message)
-    
+    chat_id = message.chat.id
+    if check_user_credentials(chat_id):
+        bot.send_message(chat_id, "Your credentials are already stored 🗃️. To start your trading agent, please type /start 🚀")
+    else:
+        ask_for_api_key(message)
 
 def ask_for_ticker(message,trader):
     msg = bot.reply_to(message, "Please enter a ticker symbol (e.g., AAPL, GOOG):")
@@ -153,6 +166,17 @@ def start(message):
     else:
         bot.reply_to(message, "Please initialize your credentials first with /init.")
 
+@bot.message_handler(func=lambda message: True)
+def redirect_to_init_or_start(message):
+    chat_id = message.chat.id
+    # Check if the user has already initialized their credentials
+    trader = next((t for t in list_traders if t.chat_id == chat_id), None)
+    if trader:
+        # If credentials are initialized, prompt to use /start
+        bot.send_message(chat_id, "You can start trading by using the /start command. 🚀")
+    else:
+        # If credentials are not initialized, prompt to use /init
+        bot.send_message(chat_id, "Please initialize your credentials first with the /init command. 🔑")
 
 
 def start_bot():
@@ -164,7 +188,6 @@ def run_other_task():
             for trader in list_traders:
                 trader.send_message('Hello, I am a bot')
                 time.sleep(10)
-
 
 
 

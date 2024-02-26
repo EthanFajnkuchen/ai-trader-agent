@@ -15,7 +15,7 @@ from alpaca_trade_api import REST
 from timedelta import Timedelta 
 # from finbert_utils import estimate_sentiment
 
-r = redis.Redis(host='localhost', port=6379, decode_responses=True)
+r = redis.StrictRedis(host="localhost", port=6379, charset="utf-8", decode_responses=True)
 
 app = FastAPI()
 load_dotenv()
@@ -101,7 +101,10 @@ class Ticker(BaseModel):
 async def check_credentials(chat_id: str):
     try:
         data_from_redis = r.hgetall(chat_id)
-        data = {key.decode('utf-8'): json.loads(value) for key, value in data_from_redis.items()}
+        if data_from_redis == {}:
+            return {"message": "No credentials found", "status": 404}
+        data = {key: value.strip('"') for key, value in data_from_redis.items()}
+        data['status'] = 200
         return data
     except Exception as e:
         return {"message": "Error retrieving credentials", "status": 500}
