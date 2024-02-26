@@ -3,11 +3,7 @@ fastapi
 alpaca_trade_api
 yfinance
 telebot
-os
-time
-threading
-datetime
-dotenv
+python-dotenv
 requests
 lumibot
 timedelta

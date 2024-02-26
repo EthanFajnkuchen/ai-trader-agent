@@ -40,7 +40,7 @@ def process_api_key_step(message):
 
 def verify_credentials(api_key, api_secret):
     # Define the URL for your FastAPI endpoint
-    url = BASE_URL + "/verifycredentials/"
+    url = BASE_URL + "/verifyandstorecredentials/"
 
     # Prepare the data to send in the POST request
     data = {'api_key': api_key, 'api_secret': api_secret}
@@ -74,7 +74,7 @@ def process_api_secret_step(message, api_key):
 @bot.message_handler(commands=['init'])
 def init(message):
     ask_for_api_key(message)
-
+    
 
 def ask_for_ticker(message,trader):
     msg = bot.reply_to(message, "Please enter a ticker symbol (e.g., AAPL, GOOG):")
