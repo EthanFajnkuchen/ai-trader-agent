@@ -4,14 +4,12 @@ import os
 import threading
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from trader_agent import verify_credentials as verify_credentials_alpaca
 import requests
 
-BASE_URL = "https://paper-api.alpaca.markets"
 load_dotenv()
+BASE_URL = os.getenv("BASE_URL")
 
 # Set your tokens here
-
 bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"))
 list_traders = []   
 
