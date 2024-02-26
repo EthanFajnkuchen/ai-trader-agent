@@ -19,7 +19,7 @@ r = redis.StrictRedis(host="localhost", port=6379, charset="utf-8", decode_respo
 
 app = FastAPI()
 load_dotenv()
-BASE_URL = os.getenv("BASE_URL")
+BASE_URL_ALPACA = os.getenv("BASE_URL_ALPACA")
 
 ALPACA_CREDS = {
     "API_KEY":None, 

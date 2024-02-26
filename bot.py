@@ -10,6 +10,7 @@ load_dotenv()
 
 # Set your tokens here
 bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"))
+BASE_URL_API = os.getenv("BASE_URL_API")
 list_traders = []   
 
 class BotParameters:
@@ -41,7 +42,7 @@ def verify_credentials(api_key, api_secret, chat_id):
     # Define the URL for your FastAPI endpoint
 
     # Make the POST request and capture the response
-    response = requests.post("http://127.0.0.1:8000/verifyandstorecredentials/", json={"chat_id": str(chat_id), 'api_key': api_key, 'api_secret': api_secret})
+    response = requests.post(f"{BASE_URL_API}/verifyandstorecredentials/", json={"chat_id": str(chat_id), 'api_key': api_key, 'api_secret': api_secret})
 
     # Check if the request was successful
     if response.status_code == 200:
@@ -67,7 +68,7 @@ def process_api_secret_step(message, api_key):
 
 def check_user_credentials(chat_id):
     # Construct the URL for the FastAPI endpoint
-    url = f"http://127.0.0.1:8000/checkcredentials/{chat_id}"
+    url = f"{BASE_URL_API}/checkcredentials/{chat_id}"
     
     # Make the GET request and capture the response
     response = requests.get(url)
@@ -199,4 +200,4 @@ def main():
     # agent_thread.start()
 
 if __name__ == "__main__":
-    main()
+    start_bot()
