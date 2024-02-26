@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+from dotenv import load_dotenv
+import os
 import alpaca_trade_api as tradeapi
 import yfinance as yf
 from lumibot.brokers import Alpaca
@@ -13,7 +15,8 @@ from timedelta import Timedelta
 
 app = FastAPI()
 
-BASE_URL = "https://paper-api.alpaca.markets"
+load_dotenv()
+BASE_URL = os.getenv("BASE_URL")
 
 ALPACA_CREDS = {
     "API_KEY":None, 
