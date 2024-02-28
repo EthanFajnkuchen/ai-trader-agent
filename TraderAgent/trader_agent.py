@@ -15,10 +15,11 @@ from alpaca_trade_api import REST
 from timedelta import Timedelta 
 # from finbert_utils import estimate_sentiment
 
-r = redis.StrictRedis(host="localhost", port=6379, charset="utf-8", decode_responses=True)
+load_dotenv('./../')
+
+r = redis.StrictRedis(host="redis", port=6379, charset="utf-8", decode_responses=True)
 
 app = FastAPI()
-load_dotenv()
 BASE_URL_ALPACA = os.getenv("BASE_URL_ALPACA")
 
 ALPACA_CREDS = {
@@ -101,12 +102,14 @@ class Ticker(BaseModel):
 async def check_credentials(chat_id: str):
     try:
         data_from_redis = r.hgetall(chat_id)
+        print(data_from_redis)
         if data_from_redis == {}:
             return {"message": "No credentials found", "status": 404}
         data = {key: value.strip('"') for key, value in data_from_redis.items()}
         data['status'] = 200
         return data
     except Exception as e:
+        print('error')
         return {"message": "Error retrieving credentials", "status": 500}
     
 
@@ -115,6 +118,7 @@ async def verify_and_store_credentials(request_body: Credentials):
     try:
         api = tradeapi.REST(request_body.api_key, request_body.api_secret, base_url="https://paper-api.alpaca.markets")
         account = api.get_account()
+        print(account)
 
         data = {
             'api_key': request_body.api_key,

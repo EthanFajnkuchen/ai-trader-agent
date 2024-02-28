@@ -104,7 +104,7 @@ def process_ticker_step(message, trader):
         bot.register_next_step_handler(msg, process_ticker_step,trader)
         return
     
-    response = requests.post("http://127.0.0.1:8000/check_ticker/", json={"ticker": ticker})
+    response = requests.post(f"{BASE_URL_API}/check_ticker/", json={"ticker": ticker})
     if response.status_code == 200:
         response_body = response.json()
         # Check if the status field in the response body indicates a failure
