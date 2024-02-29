@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import requests
 
-load_dotenv()
+load_dotenv('./../')
 
 # Set your tokens here
 bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"))
@@ -161,7 +161,6 @@ def process_max_amount_step(message, trader):
 def start(message):
     chat_id = message.chat.id
     trader = next((t for t in list_traders if t.chat_id == chat_id), None)
-
     if trader:
         ask_for_ticker(message, trader)
     else:
