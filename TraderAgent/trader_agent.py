@@ -17,7 +17,7 @@ from timedelta import Timedelta
 
 load_dotenv('./../')
 
-r = redis.StrictRedis(host="redis", port=6379, charset="utf-8", decode_responses=True)
+r = redis.StrictRedis(host="localhost", port=6379, charset="utf-8", decode_responses=True) #Change to redis for docker
 
 app = FastAPI()
 BASE_URL_ALPACA = os.getenv("BASE_URL_ALPACA")
@@ -35,6 +35,13 @@ class Credentials(BaseModel):
 
 class Ticker(BaseModel):
     ticker: str
+    
+class Session(BaseModel):
+    chat_id: str
+    session_alive: bool
+    ticker: str
+    end_time: str
+    amount_to_spend: str
 
 
 # class MLStrategy(Strategy):
@@ -102,7 +109,6 @@ class Ticker(BaseModel):
 async def check_credentials(chat_id: str):
     try:
         data_from_redis = r.hgetall(chat_id)
-        print(data_from_redis)
         if data_from_redis == {}:
             return {"message": "No credentials found", "status": 404}
         data = {key: value.strip('"') for key, value in data_from_redis.items()}
@@ -128,6 +134,8 @@ async def verify_and_store_credentials(request_body: Credentials):
         try:
             for key, value in data.items():
                 r.hset(request_body.chat_id, key, json.dumps(value))
+            for key in ['session_alive','ticker','end_time','amount_to_spend']:
+                r.hset(request_body.chat_id, key, json.dumps(None))
         except Exception as e:
             return {"message": "Error storing credentials"}
         
@@ -151,3 +159,28 @@ async def check_ticker(request_body: Ticker):
         return {"status": 200, "message": "Ticker exists"}
     except Exception as e:
         return {"status": 500, "message": "Internal server error"}
+
+
+@app.post("/store_new_session/")
+async def store_new_session(request_body: Session):
+    try:
+        data_from_redis = r.hgetall(request_body.chat_id)
+        if data_from_redis == {}:
+            return {"message": "No credentials found", "status": 404}
+        
+        data = {
+            'session_alive': request_body.session_alive,
+            'ticker': request_body.ticker,
+            'end_time': request_body.end_time,
+            'amount_to_spend': request_body.amount_to_spend
+        }
+        
+        for key, value in data.items():
+            r.hset(request_body.chat_id, key, json.dumps(value))
+        
+        return {"status": 200, "message": "Session saved succesfully"}
+
+    except Exception as e:
+        return {"status": 500, "message": "Internal server error"}
+        
+        

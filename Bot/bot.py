@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import requests
 
-load_dotenv('./../')
+load_dotenv("./../.env")
 
 # Set your tokens here
 bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"))
@@ -14,14 +14,14 @@ BASE_URL_API = os.getenv("BASE_URL_API")
 list_traders = []   
 
 class BotParameters:
-    def __init__(self, chat_id, api_key, api_secret):
+    def __init__(self, chat_id, api_key, api_secret,session_alive=False, end_time=None, ticker=None, amount_to_spend=None):
         self.chat_id = chat_id
         self.api_key = api_key
         self.api_secret = api_secret
-        self.session_alive = False
-        self.end_time = None
-        self.ticker = None
-        self.amount_to_spend = None
+        self.session_alive = session_alive
+        self.end_time = end_time
+        self.ticker = ticker
+        self.amount_to_spend = amount_to_spend
 
     def send_message(self, message):
         bot.send_message(self.chat_id, message)
@@ -79,13 +79,14 @@ def check_user_credentials(chat_id):
     if response_body['status'] == 200:
         print('go')
 
-        return True  
-    return False  # No credentials found or an error occurred
+        return True, response_body
+    return False, response_body  # No credentials found or an error occurred
 
 @bot.message_handler(commands=['init'])
 def init(message):
     chat_id = message.chat.id
-    if check_user_credentials(chat_id):
+    already_exists, response_body = check_user_credentials(chat_id)
+    if already_exists:
         bot.send_message(chat_id, "Your credentials are already stored 🗃️. To start your trading agent, please type /start 🚀")
     else:
         ask_for_api_key(message)
@@ -154,16 +155,42 @@ def process_max_amount_step(message, trader):
     trader.amount_to_spend = max_amount
     trader.session_alive = True
 
+    #Send Reuqquest to API
+    print(type(trader.chat_id))
+    print(type(trader.end_time))
+    print(type(trader.session_alive))
+    print(type(trader.ticker))
+    print(type(trader.amount_to_spend))
+    response = requests.post(f"{BASE_URL_API}/store_new_session/", json={"chat_id": str(trader.chat_id), 'session_alive': trader.session_alive, 'ticker': trader.ticker, 'end_time': str(trader.end_time), 'amount_to_spend': trader.amount_to_spend})
+
     bot.send_message(chat_id, f"All set! Your trading agent is alive.")
     bot.send_message(chat_id, f"{trader.chat_id}\n{trader.session_alive}\n{trader.ticker}\n{trader.end_time}\n{trader.amount_to_spend}")
 
 @bot.message_handler(commands=['start'])
 def start(message):
     chat_id = message.chat.id
+    already_exists, response_body = check_user_credentials(chat_id)
+    
+
+    
     trader = next((t for t in list_traders if t.chat_id == chat_id), None)
-    if trader:
+    if trader and already_exists:
+        trader.session_alive = response_body["session_alive"]
+        trader.end_time = response_body["end_time"]
+        trader.ticker = response_body["ticker"]
+        trader.amount_to_spend = response_body["amount_to_spend"]
+    if not trader and already_exists:
+        trader = BotParameters(chat_id, response_body['api_key'], response_body['api_secret'], response_body['session_alive'], response_body['end_time'], response_body['ticker'], response_body['amount_to_spend'])
+        list_traders.append(trader)
+    
+    trader = next((t for t in list_traders if t.chat_id == chat_id), None)
+
+    if trader and not trader.session_alive:
         ask_for_ticker(message, trader)
+    elif trader and trader.session_alive:
+        bot.reply_to(message, "You already have an active session. Please wait for it to end before starting a new one. If you wish to stop the current session, use /stop.")
     else:
+
         bot.reply_to(message, "Please initialize your credentials first with /init.")
 
 @bot.message_handler(func=lambda message: True)
