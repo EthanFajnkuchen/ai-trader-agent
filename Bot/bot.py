@@ -240,7 +240,6 @@ def process_max_amount_step(message, trader):
     trader.session_alive = True
     response = requests.post(f"{BASE_URL_API}/store_new_session/", json={"chat_id": str(trader.chat_id), 'session_alive': trader.session_alive, 'ticker': trader.ticker, 'end_time': str(trader.end_time), 'amount_to_spend': trader.amount_to_spend})
     bot.send_message(chat_id, f"All set! Your trading agent is alive.")
-    bot.send_message(chat_id, f"{trader.chat_id}\n{trader.session_alive}\n{trader.ticker}\n{trader.end_time}\n{trader.amount_to_spend}")
 
 
 
