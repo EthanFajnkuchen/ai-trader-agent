@@ -161,4 +161,3 @@ cython_debug/
 #.idea/
 /testbot.py
 /Dockerfile
-/Models/
