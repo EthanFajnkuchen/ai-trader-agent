@@ -350,15 +350,15 @@ def stop(message):
     trader = retreive_trader(chat_id)
 
     if trader and (not trader.session_alive):
-        bot.reply_to(message, "You don't have an active session to stop. Use /start to begin a new session.")
+        bot.reply_to(message, "You don't have an active session to stop. Use /start to begin a new session. 🚀")
         
     elif trader and trader.session_alive:
         trader.session_alive = False
         response = requests.post(f"{BASE_URL_API}/store_new_session/", json={"chat_id": str(trader.chat_id), 'session_alive': trader.session_alive, 'ticker': "null", 'end_time': "null", 'amount_to_spend': "null"})
-        bot.send_message(chat_id, "Your trading agent has been stopped.")
+        bot.send_message(chat_id, "Your trading agent has been stopped. 🛑")
     
     if not trader:
-        bot.reply_to(message, "Please initialize your credentials first with /init.")
+        bot.reply_to(message, "Please initialize your credentials first with /init. 🔑")
 
 @bot.message_handler(func=lambda message: True)
 def redirect_to_init_or_start(message):
@@ -376,7 +376,7 @@ def redirect_to_init_or_start(message):
     chat_id = message.chat.id
     trader = retreive_trader(chat_id)
     if trader and trader.session_alive:
-        bot.send_message(chat_id, "You already have an active session. Please wait for it to end before starting a new one. If you wish to stop the current session, use /stop.")
+        bot.send_message(chat_id, "You already have an active session. Please wait for it to end before starting a new one. If you wish to stop the current session, use /stop. 🛑")
     elif trader and not trader.session_alive:
         bot.send_message(chat_id, "You can start trading by using the /start command. 🚀")
     else:
