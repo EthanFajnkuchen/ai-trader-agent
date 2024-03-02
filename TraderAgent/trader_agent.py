@@ -17,7 +17,7 @@ from timedelta import Timedelta
 
 load_dotenv('./../')
 
-r = redis.StrictRedis(host="localhost", port=6379, charset="utf-8", decode_responses=True) #Change to redis for docker
+r = redis.StrictRedis(host="redis", port=6379, charset="utf-8", decode_responses=True) #Change to redis for docker
 
 app = FastAPI()
 BASE_URL_ALPACA = os.getenv("BASE_URL_ALPACA")

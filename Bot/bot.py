@@ -133,11 +133,8 @@ def check_user_credentials(chat_id):
     
     response = requests.get(url)
     response_body = response.json()
-    print(response_body)
     
     if response_body['status'] == 200:
-        print('go')
-
         return True, response_body
     return False, response_body  
 
@@ -323,7 +320,6 @@ def start(message):
     """
     chat_id = message.chat.id
     trader = retreive_trader(chat_id)
-    print(trader.session_alive)
 
     if trader and (not trader.session_alive):
         ask_for_ticker(message, trader)
@@ -352,10 +348,7 @@ def stop(message):
     """
     chat_id = message.chat.id
     trader = retreive_trader(chat_id)
-    print(trader.session_alive)
-    print(type(trader.session_alive))
-    if trader.session_alive:
-        print("yes")
+
     if trader and (not trader.session_alive):
         bot.reply_to(message, "You don't have an active session to stop. Use /start to begin a new session.")
         
