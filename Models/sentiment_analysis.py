@@ -1,6 +1,6 @@
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
-from typing import Tuple 
+#from typing import Tuple 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 tokenizer = AutoTokenizer.from_pretrained("mrm8488/distilroberta-finetuned-financial-news-sentiment-analysis")
