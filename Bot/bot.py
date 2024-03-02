@@ -10,7 +10,7 @@ load_dotenv("./../.env")
 
 bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"))
 BASE_URL_API = os.getenv("BASE_URL_API")
-list_traders = []   
+LIST_TRADERS = []   
 
 class BotParameters:
     """
@@ -112,7 +112,7 @@ def process_api_secret_step(message, api_key):
 
     if verify_credentials(api_key, api_secret, chat_id):
         trader = BotParameters(chat_id, api_key, api_secret)
-        list_traders.append(trader)
+        LIST_TRADERS.append(trader)
         bot.send_message(chat_id, "Credentials verified! To start your trading agent, please type /start 🚀")
     else:
         bot.send_message(chat_id, "Wrong credentials ❌\nPlease initiate the setup again with /init.")
@@ -262,7 +262,7 @@ def retreive_trader(chat_id):
         BotParameters: The trader object associated with the given chat ID.
     """
     already_exists, response_body = check_user_credentials(chat_id)
-    trader = next((t for t in list_traders if t.chat_id == chat_id), None)
+    trader = next((t for t in LIST_TRADERS if t.chat_id == chat_id), None)
     if trader and already_exists:
         trader.session_alive = True if response_body["session_alive"] == "true" else False
         trader.end_time = response_body["end_time"]
@@ -270,9 +270,9 @@ def retreive_trader(chat_id):
         trader.amount_to_spend = response_body["amount_to_spend"]
     if not trader and already_exists:
         trader = BotParameters(chat_id, response_body['api_key'], response_body['api_secret'], True if response_body["session_alive"] == "true" else False, response_body['end_time'], response_body['ticker'], response_body['amount_to_spend'])
-        list_traders.append(trader)
+        LIST_TRADERS.append(trader)
     
-    trader = next((t for t in list_traders if t.chat_id == chat_id), None)
+    trader = next((t for t in LIST_TRADERS if t.chat_id == chat_id), None)
     return trader
   
   
@@ -405,8 +405,8 @@ def start_bot():
 
 def run_other_task():
     while(True):
-        if len(list_traders) > 0:
-            for trader in list_traders:
+        if len(LIST_TRADERS) > 0:
+            for trader in LIST_TRADERS:
                 trader.send_message('Hello, I am a bot')
                 time.sleep(10)
 
