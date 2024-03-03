@@ -16,10 +16,12 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY ./TraderAgent /app
 
-RUN pip install fastapi uvicorn python-dotenv redis alpaca-trade-api yfinance lumibot datetime timedelta
+COPY TraderAgent .
+# Install any needed packages specified directly
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
+
 
 EXPOSE 81
 
-CMD ["uvicorn", "trader_agent:app", "--host", "0.0.0.0", "--port", "81"]
+CMD ["uvicorn", "trader_agent:app", "--host", "0.0.0.0", "--port", "81", "--reload"]

@@ -1,8 +1,9 @@
 fastapi
-pydantic
+uvicorn
 python-dotenv
+redis
 alpaca-trade-api
 yfinance
 lumibot
-python-telegram-bot
-requests
+datetime
+timedelta
