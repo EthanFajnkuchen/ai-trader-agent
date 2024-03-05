@@ -1,6 +1,6 @@
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
-#from typing import Tuple 
+from typing import Tuple 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 tokenizer = AutoTokenizer.from_pretrained("mrm8488/distilroberta-finetuned-financial-news-sentiment-analysis")
@@ -24,6 +24,6 @@ def estimate_sentiment(news):
 
 
 if __name__ == "__main__":
-    tensor, sentiment = estimate_sentiment(["Why everyone should buy AAPL stocks now!"])
+    tensor, sentiment = estimate_sentiment(["Stock market today: S&P 500, Nasdaq hit fresh records to cap best February in nearly a decade"])
     print(tensor, sentiment)
-    print(torch.cuda.is_available())
+    #print(torch.cuda.is_available())

@@ -72,25 +72,6 @@ def process_api_key_step(message):
     msg = bot.send_message(chat_id, "Very good!\nNow, please enter your API-Secret:")
     bot.register_next_step_handler(msg, process_api_secret_step, api_key)
 
-def verify_credentials(api_key, api_secret, chat_id):
-    """
-    Verifies the provided API credentials by making a POST request to a specified endpoint.
-
-    This function sends the API key, API secret, and chat ID as a JSON payload to an endpoint that verifies these credentials. If the server responds with a status code of 200 and the response body also contains a status of 200, the credentials are considered verified.
-
-    Parameters:
-        api_key (str): The API key to be verified.
-        api_secret (str): The API secret to be verified.
-        chat_id (int): The Telegram chat ID associated with these credentials, used for identifying the user.
-
-    Returns:
-        bool: True if the credentials are successfully verified, False otherwise.
-    """
-    response = requests.post(f"{BASE_URL_API}/verifyandstorecredentials/", json={"chat_id": str(chat_id), 'api_key': api_key, 'api_secret': api_secret})
-    if response.status_code == 200:
-        response_body = response.json()
-        return response_body.get('status') == 200
-    return False
 
 
 def process_api_secret_step(message, api_key):
@@ -116,6 +97,26 @@ def process_api_secret_step(message, api_key):
         bot.send_message(chat_id, "Credentials verified! To start your trading agent, please type /start 🚀")
     else:
         bot.send_message(chat_id, "Wrong credentials ❌\nPlease initiate the setup again with /init.")
+        
+def verify_credentials(api_key, api_secret, chat_id):
+    """
+    Verifies the provided API credentials by making a POST request to a specified endpoint.
+
+    This function sends the API key, API secret, and chat ID as a JSON payload to an endpoint that verifies these credentials. If the server responds with a status code of 200 and the response body also contains a status of 200, the credentials are considered verified.
+
+    Parameters:
+        api_key (str): The API key to be verified.
+        api_secret (str): The API secret to be verified.
+        chat_id (int): The Telegram chat ID associated with these credentials, used for identifying the user.
+
+    Returns:
+        bool: True if the credentials are successfully verified, False otherwise.
+    """
+    response = requests.post(f"{BASE_URL_API}/verifyandstorecredentials/", json={"chat_id": str(chat_id), 'api_key': api_key, 'api_secret': api_secret})
+    if response.status_code == 200:
+        response_body = response.json()
+        return response_body.get('status') == 200
+    return False
 
 def check_user_credentials(chat_id):
     """
