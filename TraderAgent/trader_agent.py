@@ -13,7 +13,8 @@ from lumibot.traders import Trader
 from datetime import datetime 
 from alpaca_trade_api import REST 
 from timedelta import Timedelta 
-# from finbert_utils import estimate_sentiment
+from Models.sentiment_analysis import estimate_sentiment
+import asyncio
 
 load_dotenv('./../')
 
@@ -44,66 +45,67 @@ class Session(BaseModel):
     amount_to_spend: str
 
 
-# class MLStrategy(Strategy):
-#     def initialize(self, symbol:str="SPY", cash_at_risk:float=.5): 
-#         self.symbol = symbol
-#         self.sleeptime = "24H" 
-#         self.last_trade = None 
-#         self.cash_at_risk = cash_at_risk
-#         self.api = REST(base_url=BASE_URL, key_id=API_KEY, secret_key=API_SECRET)
+class MLStrategy(Strategy):
+    def initialize(self, symbol:str="SPY", cash_at_risk:float=.5): 
+        self.symbol = symbol
+        self.sleeptime = "5M" 
+        self.last_trade = None 
+        self.cash_at_risk = cash_at_risk
+        self.api = REST(base_url=BASE_URL_ALPACA, key_id=ALPACA_CREDS["API_KEY"], secret_key=ALPACA_CREDS["API_SECRET"])
 
-#     def position_sizing(self): 
-#         cash = self.get_cash() 
-#         last_price = self.get_last_price(self.symbol)
-#         quantity = round(cash * self.cash_at_risk / last_price,0)
-#         return cash, last_price, quantity
+    def position_sizing(self): 
+        cash = self.get_cash() 
+        last_price = self.get_last_price(self.symbol)
+        quantity = round(cash * self.cash_at_risk / last_price,0)
+        return cash, last_price, quantity
 
-#     def get_dates(self): 
-#         today = self.get_datetime()
-#         three_days_prior = today - Timedelta(days=3)
-#         return today.strftime('%Y-%m-%d'), three_days_prior.strftime('%Y-%m-%d')
+    def get_dates(self): 
+        today = self.get_datetime()
+        three_days_prior = today - Timedelta(days=3)
+        return today.strftime('%Y-%m-%d'), three_days_prior.strftime('%Y-%m-%d')
 
-#     def get_sentiment(self): 
-#         today, three_days_prior = self.get_dates()
-#         news = self.api.get_news(symbol=self.symbol, 
-#                                  start=three_days_prior, 
-#                                  end=today) 
-#         news = [ev.__dict__["_raw"]["headline"] for ev in news]
-#         probability, sentiment = estimate_sentiment(news)
-#         return probability, sentiment 
+    def get_sentiment(self): 
+        today, three_days_prior = self.get_dates()
+        news = self.api.get_news(symbol=self.symbol, 
+                                 start=three_days_prior, 
+                                 end=today) 
+        news = [ev.__dict__["_raw"]["headline"] for ev in news]
+        probability, sentiment = estimate_sentiment(news)
+        return probability, sentiment 
 
-#     def on_trading_iteration(self):
-#         cash, last_price, quantity = self.position_sizing() 
-#         probability, sentiment = self.get_sentiment()
+    def on_trading_iteration(self):
+        cash, last_price, quantity = self.position_sizing() 
+        probability, sentiment = self.get_sentiment()
 
-#         if cash > last_price: 
-#             if sentiment == "positive" and probability > .999: 
-#                 if self.last_trade == "sell": 
-#                     self.sell_all() 
-#                 order = self.create_order(
-#                     self.symbol, 
-#                     quantity, 
-#                     "buy", 
-#                     type="bracket", 
-#                     take_profit_price=last_price*1.20, 
-#                     stop_loss_price=last_price*.95
-#                 )
-#                 self.submit_order(order) 
-#                 self.last_trade = "buy"
-#             elif sentiment == "negative" and probability > .999: 
-#                 if self.last_trade == "buy": 
-#                     self.sell_all() 
-#                 order = self.create_order(
-#                     self.symbol, 
-#                     quantity, 
-#                     "sell", 
-#                     type="bracket", 
-#                     take_profit_price=last_price*.8, 
-#                     stop_loss_price=last_price*1.05
-#                 )
-#                 self.submit_order(order) 
-#                 self.last_trade = "sell"
+        if cash > last_price: 
+            if sentiment == "positive" and probability > .999: 
+                if self.last_trade == "sell": 
+                    self.sell_all() 
+                order = self.create_order(
+                    self.symbol, 
+                    quantity, 
+                    "buy", 
+                    type="bracket", 
+                    take_profit_price=last_price*1.20, 
+                    stop_loss_price=last_price*.95
+                )
+                self.submit_order(order) 
+                self.last_trade = "buy"
+            elif sentiment == "negative" and probability > .999: 
+                if self.last_trade == "buy": 
+                    self.sell_all() 
+                order = self.create_order(
+                    self.symbol, 
+                    quantity, 
+                    "sell", 
+                    type="bracket", 
+                    take_profit_price=last_price*.8, 
+                    stop_loss_price=last_price*1.05
+                )
+                self.submit_order(order) 
+                self.last_trade = "sell"
 
+trader = Trader()
 
 @app.get("/checkcredentials/{chat_id}")
 async def check_credentials(chat_id: str):
@@ -161,8 +163,8 @@ async def check_ticker(request_body: Ticker):
         return {"status": 500, "message": "Internal server error"}
 
 
-@app.post("/store_new_session/")
-async def store_new_session(request_body: Session):
+@app.post("/store_and_start_new_session/")
+async def store_and_start_new_session(request_body: Session):
     try:
         data_from_redis = r.hgetall(request_body.chat_id)
         if data_from_redis == {}:
@@ -177,10 +179,65 @@ async def store_new_session(request_body: Session):
         
         for key, value in data.items():
             r.hset(request_body.chat_id, key, json.dumps(value))
+
+        # Convert end_time to a datetime object
+        now = datetime.now()
+        end_time_provided = datetime.strptime(request_body.end_time, "%H:%M")  # Adjust the format as necessary
+        end_time_dt = now.replace(hour=end_time_provided.hour, minute=end_time_provided.minute, second=0, microsecond=0)
+
+        # Start the asynchronous loop in the background
+        asyncio.create_task(check_and_stop_session(request_body.chat_id, end_time_dt))
         
-        return {"status": 200, "message": "Session saved succesfully"}
+        broker = Alpaca(ALPACA_CREDS)
+
+        strategy = MLStrategy(name='mlstrat', broker=broker, 
+                    parameters={"symbol":request_body.ticker, 
+                                "cash_at_risk":float(request_body.amount_to_spend)})            #Trouver un moyen d'avoir tte l'argent dispo
+
+        global trader
+        trader.add_strategy(strategy)
+        trader.run_all()
+
+        return {"status": 200, "message": "Session saved and started succesfully"}
 
     except Exception as e:
         return {"status": 500, "message": "Internal server error"}
         
+@app.post("/stop_session/")
+async def stop_session(request_body: Session):
+    stop_session_for_chat_id(request_body.chat_id)
+
+
+async def check_and_stop_session(chat_id: str, end_time: datetime):
+    while True:
+        await asyncio.sleep(60)  # Check every minute, adjust as needed
+        now = datetime.now()
+        if now >= end_time:
+            stop_session_for_chat_id(chat_id)
+            break
+
+
+async def stop_session_for_chat_id(chat_id: str):
+    try:
+        data_from_redis = r.hgetall(chat_id)
+        if data_from_redis == {}:
+            return {"message": "No credentials found", "status": 404}
+
+        data = {
+            'session_alive': False,
+            'ticker': "null",
+            'end_time': "null",
+            'amount_to_spend': "null"
+        }
+
+        for key, value in data.items():
+            r.hset(chat_id, key, json.dumps(value))
+
+        global trader
+        trader.stop_all()
+        trader = Trader()
         
+        return {"status": 200, "message": "Session stopped succesfully"}
+
+    except Exception as e:
+        return {"status": 500, "message": "Internal server error"}
