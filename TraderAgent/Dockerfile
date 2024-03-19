@@ -17,10 +17,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 
-COPY TraderAgent .
-# Install any needed packages specified directly
-RUN pip install --no-cache-dir --upgrade -r requirements.txt
+# First, copy only the requirements.txt file and install Python dependencies
+COPY TraderAgent/requirements.txt .
+RUN pip install --upgrade -r requirements.txt
 
+# After pip install, copy the rest of your application
+COPY TraderAgent .
 
 EXPOSE 81
 

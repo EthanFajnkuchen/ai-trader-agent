@@ -216,7 +216,7 @@ def validate_end_time(message, trader):
         if end_time <= datetime.now():
             raise ValueError("End time must be in the future.")
         trader.end_time = end_time
-        msg = bot.send_message(chat_id, "Please enter the amount of cash you want to risk from your account (0.0 to 1.0):")
+        msg = bot.send_message(chat_id, "Please enter the maximum amount of money to be spent:")
         bot.register_next_step_handler(msg, process_max_amount_step, trader)
     except ValueError as e:
         msg = bot.reply_to(message, str(e) + "\nPlease enter a valid end time in the future (HH:MM):")
@@ -354,7 +354,7 @@ def stop(message):
         
     elif trader and trader.session_alive:
         trader.session_alive = False
-        response = requests.post(f"{BASE_URL_API}/stop_session/", json={"chat_id": str(trader.chat_id)})
+        response = requests.post(f"{BASE_URL_API}/stop_session/", json={"chat_id": str(trader.chat_id), 'session_alive': trader.session_alive, 'ticker': "null", 'end_time': "null", 'amount_to_spend': "null"})
         bot.send_message(chat_id, "Your trading agent has been stopped. 🛑")
     
     if not trader:

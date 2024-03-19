@@ -13,8 +13,29 @@ from lumibot.traders import Trader
 from datetime import datetime 
 from alpaca_trade_api import REST 
 from timedelta import Timedelta 
-from Models.sentiment_analysis import estimate_sentiment
 import asyncio
+
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
+
+tokenizer = AutoTokenizer.from_pretrained("mrm8488/distilroberta-finetuned-financial-news-sentiment-analysis")
+model = AutoModelForSequenceClassification.from_pretrained("mrm8488/distilroberta-finetuned-financial-news-sentiment-analysis").to(device)
+labels = ["negative", "neutral", "positive"]
+
+def estimate_sentiment(news):
+    if news:
+        tokens = tokenizer(news, return_tensors="pt", padding=True).to(device)
+
+        result = model(tokens["input_ids"], attention_mask=tokens["attention_mask"])[
+            "logits"
+        ]
+        result = torch.nn.functional.softmax(torch.sum(result, 0), dim=-1)
+        probability = result[torch.argmax(result)]
+        sentiment = labels[torch.argmax(result)]
+        return probability, sentiment
+    else:
+        return 0, labels[-1]
 
 load_dotenv('./../')
 
@@ -75,35 +96,37 @@ class MLStrategy(Strategy):
 
     def on_trading_iteration(self):
         cash, last_price, quantity = self.position_sizing() 
-        probability, sentiment = self.get_sentiment()
+        # probability, sentiment = self.get_sentiment()
 
         if cash > last_price: 
-            if sentiment == "positive" and probability > .999: 
-                if self.last_trade == "sell": 
-                    self.sell_all() 
-                order = self.create_order(
-                    self.symbol, 
-                    quantity, 
-                    "buy", 
-                    type="bracket", 
-                    take_profit_price=last_price*1.20, 
-                    stop_loss_price=last_price*.95
-                )
-                self.submit_order(order) 
-                self.last_trade = "buy"
-            elif sentiment == "negative" and probability > .999: 
-                if self.last_trade == "buy": 
-                    self.sell_all() 
-                order = self.create_order(
-                    self.symbol, 
-                    quantity, 
-                    "sell", 
-                    type="bracket", 
-                    take_profit_price=last_price*.8, 
-                    stop_loss_price=last_price*1.05
-                )
-                self.submit_order(order) 
-                self.last_trade = "sell"
+            print(f"Buying {quantity} shares of {self.symbol} at {last_price}")
+            # if sentiment == "positive" and probability > .999: 
+            #     if self.last_trade == "sell": 
+            #         self.sell_all() 
+            order = self.create_order(
+                self.symbol, 
+                quantity, 
+                "buy", 
+                type="bracket", 
+                take_profit_price=last_price*1.20, 
+                stop_loss_price=last_price*.95
+            )
+            self.submit_order(order) 
+            print(f"Order submitted: {order}")
+            self.last_trade = "buy"
+            # elif sentiment == "negative" and probability > .999: 
+            #     if self.last_trade == "buy": 
+            #         self.sell_all() 
+            #     order = self.create_order(
+            #         self.symbol, 
+            #         quantity, 
+            #         "sell", 
+            #         type="bracket", 
+            #         take_profit_price=last_price*.8, 
+            #         stop_loss_price=last_price*1.05
+            #     )
+            #     self.submit_order(order) 
+            #     self.last_trade = "sell"
 
 trader = Trader()
 
@@ -135,7 +158,7 @@ async def verify_and_store_credentials(request_body: Credentials):
 
         try:
             for key, value in data.items():
-                r.hset(request_body.chat_id, key, json.dumps(value))
+                r.hset(request_body.chat_id, key, value)
             for key in ['session_alive','ticker','end_time','amount_to_spend']:
                 r.hset(request_body.chat_id, key, json.dumps(None))
         except Exception as e:
@@ -166,10 +189,31 @@ async def check_ticker(request_body: Ticker):
 @app.post("/store_and_start_new_session/")
 async def store_and_start_new_session(request_body: Session):
     try:
+        global trader
+
         data_from_redis = r.hgetall(request_body.chat_id)
+        print(data_from_redis)
         if data_from_redis == {}:
             return {"message": "No credentials found", "status": 404}
         
+        print(data_from_redis['api_key'], data_from_redis['api_secret'])
+
+        api = tradeapi.REST(data_from_redis['api_key'], data_from_redis['api_secret'], base_url="https://paper-api.alpaca.markets")
+        total_cash = api.get_account().cash
+        cash_at_risk = float(request_body.amount_to_spend) / float(total_cash)
+        
+        ALPACA_CREDS["API_KEY"] = data_from_redis['api_key']
+        ALPACA_CREDS["API_SECRET"] = data_from_redis['api_secret']
+
+        broker = Alpaca(ALPACA_CREDS)
+        strategy = MLStrategy(name='mlstrat', broker=broker, 
+                    parameters={"symbol":request_body.ticker, 
+                                "cash_at_risk": cash_at_risk})        
+
+        trader.add_strategy(strategy)
+        print(trader.logfile)
+        trader.run_all_async()
+
         data = {
             'session_alive': request_body.session_alive,
             'ticker': request_body.ticker,
@@ -178,31 +222,20 @@ async def store_and_start_new_session(request_body: Session):
         }
         
         for key, value in data.items():
-            r.hset(request_body.chat_id, key, json.dumps(value))
+            r.hset(request_body.chat_id, key, json.dumps(value))        #Maybe need to change to value only and json.dumps because it add "" to the value
 
         # Convert end_time to a datetime object
-        now = datetime.now()
-        end_time_provided = datetime.strptime(request_body.end_time, "%H:%M")  # Adjust the format as necessary
-        end_time_dt = now.replace(hour=end_time_provided.hour, minute=end_time_provided.minute, second=0, microsecond=0)
+        end_time_dt = datetime.strptime(request_body.end_time, "%Y-%m-%d %H:%M:%S")
 
         # Start the asynchronous loop in the background
         asyncio.create_task(check_and_stop_session(request_body.chat_id, end_time_dt))
-        
-        broker = Alpaca(ALPACA_CREDS)
 
-        strategy = MLStrategy(name='mlstrat', broker=broker, 
-                    parameters={"symbol":request_body.ticker, 
-                                "cash_at_risk":float(request_body.amount_to_spend)})            #Trouver un moyen d'avoir tte l'argent dispo
-
-        global trader
-        trader.add_strategy(strategy)
-        trader.run_all()
-
-        return {"status": 200, "message": "Session saved and started succesfully"}
+        print("status: 200", "message: Session saved and started succesfully")
 
     except Exception as e:
-        return {"status": 500, "message": "Internal server error"}
-        
+        print("status :500, message :Internal server error")
+        print(e)        
+
 @app.post("/stop_session/")
 async def stop_session(request_body: Session):
     stop_session_for_chat_id(request_body.chat_id)
@@ -217,8 +250,11 @@ async def check_and_stop_session(chat_id: str, end_time: datetime):
             break
 
 
-async def stop_session_for_chat_id(chat_id: str):
+def stop_session_for_chat_id(chat_id: str):
+
     try:
+        global trader
+
         data_from_redis = r.hgetall(chat_id)
         if data_from_redis == {}:
             return {"message": "No credentials found", "status": 404}
@@ -233,9 +269,9 @@ async def stop_session_for_chat_id(chat_id: str):
         for key, value in data.items():
             r.hset(chat_id, key, json.dumps(value))
 
-        global trader
         trader.stop_all()
         trader = Trader()
+        print(trader.logfile)
         
         return {"status": 200, "message": "Session stopped succesfully"}
 
