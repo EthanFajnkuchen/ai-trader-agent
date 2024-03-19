@@ -7,3 +7,5 @@ yfinance
 lumibot
 datetime
 timedelta
+transformers
+torch
