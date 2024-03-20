@@ -240,7 +240,12 @@ def process_max_amount_step(message, trader):
     trader.amount_to_spend = max_amount
     trader.session_alive = True
     response = requests.post(f"{BASE_URL_API}/store_and_start_new_session/", json={"chat_id": str(trader.chat_id), 'session_alive': trader.session_alive, 'ticker': trader.ticker, 'end_time': str(trader.end_time), 'amount_to_spend': trader.amount_to_spend})
-    bot.send_message(chat_id, f"All set! Your trading agent is alive.")
+    response_body = response.json()
+    print(response_body )
+    if response_body["status"] == 500:
+        bot.send_message(chat_id, f"An error occurred while starting your session. Please try again later.")
+    else:
+        bot.send_message(chat_id, f"All set! Your trading agent is alive.")
 
 
 

@@ -219,7 +219,6 @@ async def store_and_start_new_session(request_body: Session):
             'end_time': request_body.end_time,
             'amount_to_spend': request_body.amount_to_spend
         }
-        
         for key, value in data.items():
             if type(value) == str:
                 r.hset(request_body.chat_id, key, value)
@@ -234,11 +233,13 @@ async def store_and_start_new_session(request_body: Session):
         print(time_remaining)
         # Start the asynchronous loop in the background
         asyncio.create_task(check_and_stop_session(request_body.chat_id, end_time_dt))
-
+    
         print("status: 200", "message: Session saved and started succesfully")
+        return {"status": 200, "message": "Session saved and started succesfully"}    
 
     except Exception as e:
         print("status :500, message :Internal server error")
+        return{"status": 500, "message": "Internal server error"}
         print(e)        
 
 @app.post("/stop_session/")
