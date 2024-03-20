@@ -69,7 +69,7 @@ class Session(BaseModel):
 class MLStrategy(Strategy):
     def initialize(self, symbol:str="SPY", cash_at_risk:float=.5): 
         self.symbol = symbol
-        self.sleeptime = "5M" 
+        self.sleeptime = "1M" 
         self.last_trade = None 
         self.cash_at_risk = cash_at_risk
         self.api = REST(base_url=BASE_URL_ALPACA, key_id=ALPACA_CREDS["API_KEY"], secret_key=ALPACA_CREDS["API_SECRET"])
@@ -104,12 +104,11 @@ class MLStrategy(Strategy):
             #     if self.last_trade == "sell": 
             #         self.sell_all() 
             order = self.create_order(
-                self.symbol, 
-                quantity, 
-                "buy", 
-                type="bracket", 
-                take_profit_price=last_price*1.20, 
-                stop_loss_price=last_price*.95
+                asset=self.symbol, 
+                quantity=quantity, 
+                side="buy",
+                take_profit_price=round(last_price*1.20, 2), 
+                stop_loss_price=round(last_price*.95, 2),
             )
             self.submit_order(order) 
             print(f"Order submitted: {order}")
@@ -222,11 +221,17 @@ async def store_and_start_new_session(request_body: Session):
         }
         
         for key, value in data.items():
-            r.hset(request_body.chat_id, key, json.dumps(value))        #Maybe need to change to value only and json.dumps because it add "" to the value
+            if type(value) == str:
+                r.hset(request_body.chat_id, key, value)
+            else:
+                r.hset(request_body.chat_id, key, json.dumps(value))     #Maybe need to change to value only and json.dumps because it add "" to the value
 
         # Convert end_time to a datetime object
         end_time_dt = datetime.strptime(request_body.end_time, "%Y-%m-%d %H:%M:%S")
-
+        end_time_dt = end_time_dt - Timedelta(hours=2)
+        now = datetime.now()
+        time_remaining = end_time_dt - now
+        print(time_remaining)
         # Start the asynchronous loop in the background
         asyncio.create_task(check_and_stop_session(request_body.chat_id, end_time_dt))
 
@@ -245,6 +250,8 @@ async def check_and_stop_session(chat_id: str, end_time: datetime):
     while True:
         await asyncio.sleep(60)  # Check every minute, adjust as needed
         now = datetime.now()
+        time_remaining = end_time - now
+        print(f"Time remaining till end_time: {time_remaining}")
         if now >= end_time:
             stop_session_for_chat_id(chat_id)
             break
@@ -261,9 +268,9 @@ def stop_session_for_chat_id(chat_id: str):
 
         data = {
             'session_alive': False,
-            'ticker': "null",
-            'end_time': "null",
-            'amount_to_spend': "null"
+            'ticker': None,
+            'end_time': None,
+            'amount_to_spend': None
         }
 
         for key, value in data.items():
