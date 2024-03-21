@@ -189,7 +189,7 @@ def process_ticker_step(message, trader):
         bot.register_next_step_handler(msg, process_ticker_step, trader)
         return
     trader.ticker = ticker
-    msg = bot.send_message(chat_id, "Please enter the end date of your session (YYY-MM-DD hh:mm):")
+    msg = bot.send_message(chat_id, "Please enter the end date of your session (YYYY-MM-DD hh:mm):")
     bot.register_next_step_handler(msg, validate_end_time, trader)
 
 
@@ -217,10 +217,10 @@ def validate_end_time(message, trader):
         if end_time <= datetime.now():
             raise ValueError("End time must be in the future.")
         trader.end_time = end_time
-        msg = bot.send_message(chat_id, "Please enter the maximum amount of money to be spent:")
+        msg = bot.send_message(chat_id, "Please enter the maximum amount of money to be spent for each day:")
         bot.register_next_step_handler(msg, process_max_amount_step, trader)
     except ValueError as e:
-        msg = bot.reply_to(message, str(e) + "\nPlease enter a valid end time in the future (HH:MM):")
+        msg = bot.reply_to(message, str(e) + "\nPlease enter a valid end date in the future (YYYY-MM-DD hh:mm):")
         bot.register_next_step_handler(msg, validate_end_time, trader)
 
 def process_max_amount_step(message, trader):
