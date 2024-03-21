@@ -40,7 +40,8 @@ load_dotenv('./../')
 
 r = redis.StrictRedis(host="redis", port=6379, charset="utf-8", decode_responses=True) #Change to redis for docker
 
-app = FastAPI()
+ongoing_sessions = {}
+
 BASE_URL_ALPACA = os.getenv("BASE_URL_ALPACA")
 CHAT_ID = ""
 
@@ -49,6 +50,8 @@ ALPACA_CREDS = {
     "API_SECRET": None, 
     "PAPER": True
 }
+
+app = FastAPI()
 
 class Credentials(BaseModel):
     chat_id: str
@@ -112,7 +115,7 @@ class MLStrategy(Strategy):
             )
             self.submit_order(order) 
             print(CHAT_ID)
-            trade_info = f'BUY {quantity} shares of {self.symbol} at {last_price}$ : {CHAT_ID}'
+            trade_info = f'BUY {quantity} shares of {self.symbol} at {last_price}$ 💸: {CHAT_ID}'
             r.publish('trade_channel',trade_info)
             print(f"Order submitted: {order}")
             self.last_trade = "buy"
@@ -216,7 +219,6 @@ async def store_and_start_new_session(request_body: Session):
                                 "cash_at_risk": cash_at_risk})        
 
         trader.add_strategy(strategy)
-        print(trader.logfile)
         trader.run_all_async()
 
         data = {
@@ -238,8 +240,12 @@ async def store_and_start_new_session(request_body: Session):
         now = datetime.now()
         time_remaining = end_time_dt - now
         print(time_remaining)
-        # Start the asynchronous loop in the background
-        asyncio.create_task(check_and_stop_session(request_body.chat_id, end_time_dt))
+
+        task = asyncio.create_task(check_and_stop_session(request_body.chat_id, end_time_dt))
+        ongoing_sessions[request_body.chat_id] = task
+
+        # # Start the asynchronous loop in the background
+        # asyncio.create_task(check_and_stop_session(request_body.chat_id, end_time_dt))
     
         CHAT_ID = request_body.chat_id
         print("status: 200", "message: Session saved and started succesfully")
@@ -256,20 +262,23 @@ async def stop_session(request_body: Session):
 
 
 async def check_and_stop_session(chat_id: str, end_time: datetime):
-    while True:
-        await asyncio.sleep(60)  # Check every minute, adjust as needed
-        now = datetime.now()
-        time_remaining = end_time - now
-        print(f"Time remaining till end_time: {time_remaining}")
-        if now >= end_time:
-            stop_session_for_chat_id(chat_id)
-            break
-
+    try:
+        while True:
+            await asyncio.sleep(60)
+            now = datetime.now()
+            time_remaining = end_time - now
+            print(f"Time remaining till end_time: {time_remaining}")
+            if now >= end_time:
+                stop_session_for_chat_id(chat_id)
+                break
+    except asyncio.CancelledError:
+        print(f"Session check task for chat ID {chat_id} was cancelled.")        
 
 def stop_session_for_chat_id(chat_id: str):
 
     try:
         global trader
+        global ongoing_sessions
 
         data_from_redis = r.hgetall(chat_id)
         if data_from_redis == {}:
@@ -285,9 +294,14 @@ def stop_session_for_chat_id(chat_id: str):
         for key, value in data.items():
             r.hset(chat_id, key, json.dumps(value))
 
+        task = ongoing_sessions.get(chat_id)
+        if task:
+            task.cancel()
+            print(f"Task for chat ID {chat_id} cancelled.")
+            del ongoing_sessions[chat_id]  # Clean up the reference
+
         trader.stop_all()
         trader = Trader()
-        print(trader.logfile)
         
         return {"status": 200, "message": "Session stopped succesfully"}
 
