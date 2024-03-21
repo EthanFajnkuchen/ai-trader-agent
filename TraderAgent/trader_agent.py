@@ -14,7 +14,6 @@ from datetime import datetime
 from alpaca_trade_api import REST 
 from timedelta import Timedelta 
 import asyncio
-
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -43,6 +42,7 @@ r = redis.StrictRedis(host="redis", port=6379, charset="utf-8", decode_responses
 
 app = FastAPI()
 BASE_URL_ALPACA = os.getenv("BASE_URL_ALPACA")
+CHAT_ID = ""
 
 ALPACA_CREDS = {
     "API_KEY":None, 
@@ -111,6 +111,9 @@ class MLStrategy(Strategy):
                 stop_loss_price=round(last_price*.95, 2),
             )
             self.submit_order(order) 
+            print(CHAT_ID)
+            trade_info = f'BUY {quantity} shares of {self.symbol} at {last_price}$ : {CHAT_ID}'
+            r.publish('trade_channel',trade_info)
             print(f"Order submitted: {order}")
             self.last_trade = "buy"
             # elif sentiment == "negative" and probability > .999: 
@@ -126,6 +129,8 @@ class MLStrategy(Strategy):
             #     )
             #     self.submit_order(order) 
             #     self.last_trade = "sell"
+            
+            
 
 trader = Trader()
 
@@ -187,6 +192,7 @@ async def check_ticker(request_body: Ticker):
 
 @app.post("/store_and_start_new_session/")
 async def store_and_start_new_session(request_body: Session):
+    global CHAT_ID
     try:
         global trader
 
@@ -219,12 +225,13 @@ async def store_and_start_new_session(request_body: Session):
             'end_time': request_body.end_time,
             'amount_to_spend': request_body.amount_to_spend
         }
+        
         for key, value in data.items():
             if type(value) == str:
                 r.hset(request_body.chat_id, key, value)
             else:
                 r.hset(request_body.chat_id, key, json.dumps(value))     #Maybe need to change to value only and json.dumps because it add "" to the value
-
+                
         # Convert end_time to a datetime object
         end_time_dt = datetime.strptime(request_body.end_time, "%Y-%m-%d %H:%M:%S")
         end_time_dt = end_time_dt - Timedelta(hours=2)
@@ -234,6 +241,7 @@ async def store_and_start_new_session(request_body: Session):
         # Start the asynchronous loop in the background
         asyncio.create_task(check_and_stop_session(request_body.chat_id, end_time_dt))
     
+        CHAT_ID = request_body.chat_id
         print("status: 200", "message: Session saved and started succesfully")
         return {"status": 200, "message": "Session saved and started succesfully"}    
 
