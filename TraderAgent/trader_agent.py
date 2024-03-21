@@ -14,6 +14,7 @@ from datetime import datetime
 from alpaca_trade_api import REST 
 from timedelta import Timedelta 
 import asyncio
+import math
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -40,10 +41,11 @@ load_dotenv('./../')
 
 r = redis.StrictRedis(host="redis", port=6379, charset="utf-8", decode_responses=True) #Change to redis for docker
 
-ongoing_sessions = {}
 
 BASE_URL_ALPACA = os.getenv("BASE_URL_ALPACA")
 CHAT_ID = ""
+TRADE_COUNTER = 0
+ONGOING_SESSION = {}
 
 ALPACA_CREDS = {
     "API_KEY":None, 
@@ -70,18 +72,18 @@ class Session(BaseModel):
 
 
 class MLStrategy(Strategy):
-    def initialize(self, symbol:str="SPY", cash_at_risk:float=.5): 
+    def initialize(self, symbol, amount_to_spend): 
         self.symbol = symbol
         self.sleeptime = "1M" 
         self.last_trade = None 
-        self.cash_at_risk = cash_at_risk
+        self.amount_to_spend = float(amount_to_spend)
         self.api = REST(base_url=BASE_URL_ALPACA, key_id=ALPACA_CREDS["API_KEY"], secret_key=ALPACA_CREDS["API_SECRET"])
 
     def position_sizing(self): 
-        cash = self.get_cash() 
+        # cash = self.get_cash() 
         last_price = self.get_last_price(self.symbol)
-        quantity = round(cash * self.cash_at_risk / last_price,0)
-        return cash, last_price, quantity
+        quantity = math.floor(self.amount_to_spend / last_price)
+        return self.amount_to_spend, last_price, quantity
 
     def get_dates(self): 
         today = self.get_datetime()
@@ -98,10 +100,13 @@ class MLStrategy(Strategy):
         return probability, sentiment 
 
     def on_trading_iteration(self):
-        cash, last_price, quantity = self.position_sizing() 
+        global TRADE_COUNTER
+        amount_to_spend, last_price, quantity = self.position_sizing() 
         # probability, sentiment = self.get_sentiment()
+        cash = self.get_cash()
+        if amount_to_spend > last_price and amount_to_spend < cash: 
+            print(f"Amount to spend: {amount_to_spend}, last price: {last_price}, quantity: {quantity}, cash: {cash}")
 
-        if cash > last_price: 
             print(f"Buying {quantity} shares of {self.symbol} at {last_price}")
             # if sentiment == "positive" and probability > .999: 
             #     if self.last_trade == "sell": 
@@ -114,8 +119,9 @@ class MLStrategy(Strategy):
                 stop_loss_price=round(last_price*.95, 2),
             )
             self.submit_order(order) 
+            TRADE_COUNTER += 1
             print(CHAT_ID)
-            trade_info = f'BUY {quantity} shares of {self.symbol} at {last_price}$ 💸: {CHAT_ID}'
+            trade_info = f'BUY {quantity} shares of {self.symbol} at {last_price}$ 💸# {CHAT_ID}'
             r.publish('trade_channel',trade_info)
             print(f"Order submitted: {order}")
             self.last_trade = "buy"
@@ -208,7 +214,8 @@ async def store_and_start_new_session(request_body: Session):
 
         api = tradeapi.REST(data_from_redis['api_key'], data_from_redis['api_secret'], base_url="https://paper-api.alpaca.markets")
         total_cash = api.get_account().cash
-        cash_at_risk = float(request_body.amount_to_spend) / float(total_cash)
+        if float(request_body.amount_to_spend) > float(total_cash):
+            return {"status": 403, "message": "Insufficient funds"}
         
         ALPACA_CREDS["API_KEY"] = data_from_redis['api_key']
         ALPACA_CREDS["API_SECRET"] = data_from_redis['api_secret']
@@ -216,7 +223,7 @@ async def store_and_start_new_session(request_body: Session):
         broker = Alpaca(ALPACA_CREDS)
         strategy = MLStrategy(name='mlstrat', broker=broker, 
                     parameters={"symbol":request_body.ticker, 
-                                "cash_at_risk": cash_at_risk})        
+                                "amount_to_spend": request_body.amount_to_spend})        
 
         trader.add_strategy(strategy)
         trader.run_all_async()
@@ -242,7 +249,7 @@ async def store_and_start_new_session(request_body: Session):
         print(time_remaining)
 
         task = asyncio.create_task(check_and_stop_session(request_body.chat_id, end_time_dt))
-        ongoing_sessions[request_body.chat_id] = task
+        ONGOING_SESSION[request_body.chat_id] = task
 
         # # Start the asynchronous loop in the background
         # asyncio.create_task(check_and_stop_session(request_body.chat_id, end_time_dt))
@@ -258,7 +265,8 @@ async def store_and_start_new_session(request_body: Session):
 
 @app.post("/stop_session/")
 async def stop_session(request_body: Session):
-    stop_session_for_chat_id(request_body.chat_id)
+    response = stop_session_for_chat_id(request_body.chat_id)
+    return response
 
 
 async def check_and_stop_session(chat_id: str, end_time: datetime):
@@ -269,7 +277,12 @@ async def check_and_stop_session(chat_id: str, end_time: datetime):
             time_remaining = end_time - now
             print(f"Time remaining till end_time: {time_remaining}")
             if now >= end_time:
-                stop_session_for_chat_id(chat_id)
+                response = stop_session_for_chat_id(chat_id)
+                trade_counter = response.get('counter')
+                cash_value = response.get('cash_value')
+                portfolio_value = response.get('portfolio_value')
+                trade_info = f"📊📊 RECAP 📊📊\nTotal trades made: {trade_counter}\nCash Value: {cash_value}$\nPortfolio Value:{portfolio_value}# {CHAT_ID}"
+                r.publish('trade_channel',trade_info)
                 break
     except asyncio.CancelledError:
         print(f"Session check task for chat ID {chat_id} was cancelled.")        
@@ -278,7 +291,8 @@ def stop_session_for_chat_id(chat_id: str):
 
     try:
         global trader
-        global ongoing_sessions
+        global ONGOING_SESSION
+        global TRADE_COUNTER
 
         data_from_redis = r.hgetall(chat_id)
         if data_from_redis == {}:
@@ -294,16 +308,24 @@ def stop_session_for_chat_id(chat_id: str):
         for key, value in data.items():
             r.hset(chat_id, key, json.dumps(value))
 
-        task = ongoing_sessions.get(chat_id)
+        task = ONGOING_SESSION.get(chat_id)
         if task:
             task.cancel()
             print(f"Task for chat ID {chat_id} cancelled.")
-            del ongoing_sessions[chat_id]  # Clean up the reference
+            del ONGOING_SESSION[chat_id]  # Clean up the reference
 
         trader.stop_all()
         trader = Trader()
+
+        api = tradeapi.REST(ALPACA_CREDS["API_KEY"], ALPACA_CREDS["API_SECRET"], base_url="https://paper-api.alpaca.markets")
+        account = api.get_account()
+        portfolio_value = account.portfolio_value
+        cash_value = account.cash
+        counter = TRADE_COUNTER
+
+        TRADE_COUNTER = 0
         
-        return {"status": 200, "message": "Session stopped succesfully"}
+        return {"status": 200, "message": "Session stopped succesfully", "counter": counter ,"cash_value": cash_value, "portfolio_value": portfolio_value}
 
     except Exception as e:
         return {"status": 500, "message": "Internal server error"}

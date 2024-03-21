@@ -189,7 +189,7 @@ def process_ticker_step(message, trader):
         bot.register_next_step_handler(msg, process_ticker_step, trader)
         return
     trader.ticker = ticker
-    msg = bot.send_message(chat_id, "Please enter the end time of your session (HH:MM):")
+    msg = bot.send_message(chat_id, "Please enter the end date of your session (YYY-MM-DD hh:mm):")
     bot.register_next_step_handler(msg, validate_end_time, trader)
 
 
@@ -212,7 +212,8 @@ def validate_end_time(message, trader):
     chat_id = message.chat.id
     end_time_str = message.text
     try:
-        end_time = datetime.now().replace(hour=int(end_time_str.split(":")[0]), minute=int(end_time_str.split(":")[1]), second=0, microsecond=0)
+        # Assuming end_time_str is the string provided by the user, e.g., "2024-03-21 15:30"
+        end_time = datetime.strptime(end_time_str, "%Y-%m-%d %H:%M")
         if end_time <= datetime.now():
             raise ValueError("End time must be in the future.")
         trader.end_time = end_time
@@ -244,6 +245,8 @@ def process_max_amount_step(message, trader):
     print(response_body )
     if response_body["status"] == 500:
         bot.send_message(chat_id, f"An error occurred while starting your session. Please try again later.")
+    elif response_body["status"] == 403:
+        bot.send_message(chat_id, f"Insufficient funds")
     else:
         bot.send_message(chat_id, f"All set! Your trading agent is alive.")
 
@@ -360,7 +363,13 @@ def stop(message):
     elif trader and trader.session_alive:
         trader.session_alive = False
         response = requests.post(f"{BASE_URL_API}/stop_session/", json={"chat_id": str(trader.chat_id), 'session_alive': trader.session_alive, 'ticker': "null", 'end_time': "null", 'amount_to_spend': "null"})
+        response_body = response.json()
+        trade_counter = response_body.get('counter')
+        cash_value = response_body.get('cash_value')
+        portfolio_value = response_body.get('portfolio_value')
+        trade_info = f"📊📊 RECAP 📊📊\nTotal trades made: {trade_counter}\nCash Value: {cash_value}$\nPortfolio Value:{portfolio_value}"
         bot.send_message(chat_id, "Your trading agent has been stopped. 🛑")
+        bot.send_message(chat_id, trade_info)
     
     if not trader:
         bot.reply_to(message, "Please initialize your credentials first with /init. 🔑")
