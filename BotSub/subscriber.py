@@ -25,7 +25,7 @@ def listen_for_trades():
             print(trade_info)
             print(type(trade_info))
             
-            parts = trade_info.split(': ')
+            parts = trade_info.split('# ')
             chat_id = parts[1]
             message_info = parts[0]
 
