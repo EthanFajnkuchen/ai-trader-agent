@@ -367,7 +367,7 @@ def stop(message):
         trade_counter = response_body.get('counter')
         cash_value = response_body.get('cash_value')
         portfolio_value = response_body.get('portfolio_value')
-        trade_info = f"📊📊 RECAP 📊📊\nTotal trades made: {trade_counter}\nCash Value: {cash_value}$\nPortfolio Value:{portfolio_value}"
+        trade_info = f"📊📊 RECAP 📊📊\nTotal trades made: {trade_counter}\nCash Value: {cash_value}$\nPortfolio Value: {portfolio_value}$"
         bot.send_message(chat_id, "Your trading agent has been stopped. 🛑")
         bot.send_message(chat_id, trade_info)
     

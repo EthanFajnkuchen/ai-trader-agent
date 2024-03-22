@@ -74,7 +74,7 @@ class Session(BaseModel):
 class MLStrategy(Strategy):
     def initialize(self, symbol, amount_to_spend): 
         self.symbol = symbol
-        self.sleeptime = "1M"  #Change to ONE Day but for your test maybe every 2H
+        self.sleeptime = "2H"  #Change to ONE Day but for your test maybe every 2H
         self.last_trade = None 
         self.amount_to_spend = float(amount_to_spend)
         self.api = REST(base_url=BASE_URL_ALPACA, key_id=ALPACA_CREDS["API_KEY"], secret_key=ALPACA_CREDS["API_SECRET"])
@@ -102,12 +102,13 @@ class MLStrategy(Strategy):
         global TRADE_COUNTER
         amount_to_spend, last_price, quantity = self.position_sizing() 
         probability, sentiment = self.get_sentiment()
+        print(probability, sentiment)
         cash = self.get_cash()
 
         if amount_to_spend > last_price and amount_to_spend < cash: 
             print(f"Amount to spend: {amount_to_spend}, last price: {last_price}, quantity: {quantity}, cash: {cash}")
 
-            if sentiment == "positive" and probability > .999: 
+            if sentiment == "positive" and probability > .9: 
                 if self.last_trade == "sell": 
                     self.sell_all() 
                     TRADE_COUNTER += 1
@@ -126,7 +127,7 @@ class MLStrategy(Strategy):
                 r.publish('trade_channel',trade_info)
                 print(f"Order submitted: {order}")
                 self.last_trade = "buy"
-            elif sentiment == "negative" and probability > .999: 
+            elif sentiment == "negative" and probability > .9: 
                 if self.last_trade == "buy": 
                     self.sell_all() 
                     TRADE_COUNTER += 1
@@ -287,7 +288,7 @@ async def check_and_stop_session(chat_id: str, end_time: datetime):
                 trade_counter = response.get('counter')
                 cash_value = response.get('cash_value')
                 portfolio_value = response.get('portfolio_value')
-                trade_info = f"📊📊 RECAP 📊📊\nTotal trades made: {trade_counter}\nCash Value: {cash_value}$\nPortfolio Value:{portfolio_value}# {CHAT_ID}"
+                trade_info = f"📊📊 RECAP 📊📊\nTotal trades made: {trade_counter}\nCash Value: {cash_value}$\nPortfolio Value: {portfolio_value}$# {CHAT_ID}"
                 r.publish('trade_channel',trade_info)
                 break
     except asyncio.CancelledError:
