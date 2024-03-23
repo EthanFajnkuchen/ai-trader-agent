@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3'
 
 services:
   bot:
@@ -27,11 +27,11 @@ services:
     build:
       context: .
       dockerfile: BotSub/Dockerfile
+
     ports:
       - "8003:82"
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-
 
   redis:
     image: "redis/redis-stack"

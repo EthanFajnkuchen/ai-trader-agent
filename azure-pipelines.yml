@@ -1,19 +1,19 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
-- main
+- none  # This pipeline will only run manually or when triggered explicitly
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: 'ubuntu-latest'  # Specifies which VM image to use for the Azure Pipeline agent
 
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+- checkout: none  # This pipeline doesn't require access to your code repository
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+- task: SSH@0
+  displayName: 'Test SSH Connection and Docker Command'
+  inputs:
+    sshEndpoint: 'ssh-ai-trader-agent'  # The name of your SSH service connection in Azure DevOps
+    runOptions: 'inline'
+    inline: |
+      # Execute docker ps command to list all containers
+      sudo docker ps
+
+      # Optionally, you can add more commands here to test other functionalities
