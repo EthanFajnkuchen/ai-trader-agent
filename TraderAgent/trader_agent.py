@@ -17,6 +17,8 @@ import asyncio
 import math
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
+
+
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 tokenizer = AutoTokenizer.from_pretrained("mrm8488/distilroberta-finetuned-financial-news-sentiment-analysis")
@@ -74,7 +76,7 @@ class Session(BaseModel):
 class MLStrategy(Strategy):
     def initialize(self, symbol, amount_to_spend): 
         self.symbol = symbol
-        self.sleeptime = "2H"  #Change to ONE Day but for your test maybe every 2H
+        self.sleeptime = "24H"
         self.last_trade = None 
         self.amount_to_spend = float(amount_to_spend)
         self.api = REST(base_url=BASE_URL_ALPACA, key_id=ALPACA_CREDS["API_KEY"], secret_key=ALPACA_CREDS["API_SECRET"])
