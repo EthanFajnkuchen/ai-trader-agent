@@ -30,7 +30,7 @@ steps:
       # Construct the Git repository URL with credentials
       GIT_REPO="https://$(GitUsername):$(GitPassword)@github.com/EthanFajnkuchen/ai-trader-agent.git"
 
-      git clone $GIT_REPO
+      git clone $GIT_REPO 2>&1
       
       cd ai-trader-agent
       
