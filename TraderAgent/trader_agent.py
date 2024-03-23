@@ -104,11 +104,9 @@ class MLStrategy(Strategy):
         global TRADE_COUNTER
         amount_to_spend, last_price, quantity = self.position_sizing() 
         probability, sentiment = self.get_sentiment()
-        print(probability, sentiment)
         cash = self.get_cash()
 
         if amount_to_spend > last_price and amount_to_spend < cash: 
-            print(f"Amount to spend: {amount_to_spend}, last price: {last_price}, quantity: {quantity}, cash: {cash}")
 
             if sentiment == "positive" and probability > .9: 
                 if self.last_trade == "sell": 
@@ -127,7 +125,6 @@ class MLStrategy(Strategy):
                 TRADE_COUNTER += 1
                 trade_info = f'BUY {quantity} shares of {self.symbol} at {last_price}$ 💸# {CHAT_ID}'
                 r.publish('trade_channel',trade_info)
-                print(f"Order submitted: {order}")
                 self.last_trade = "buy"
             elif sentiment == "negative" and probability > .9: 
                 if self.last_trade == "buy": 
@@ -162,7 +159,6 @@ async def check_credentials(chat_id: str):
         data['status'] = 200
         return data
     except Exception as e:
-        print('error')
         return {"message": "Error retrieving credentials", "status": 500}
     
 
@@ -171,7 +167,6 @@ async def verify_and_store_credentials(request_body: Credentials):
     try:
         api = tradeapi.REST(request_body.api_key, request_body.api_secret, base_url="https://paper-api.alpaca.markets")
         account = api.get_account()
-        print(account)
 
         data = {
             'api_key': request_body.api_key,
@@ -215,11 +210,9 @@ async def store_and_start_new_session(request_body: Session):
         global trader
 
         data_from_redis = r.hgetall(request_body.chat_id)
-        print(data_from_redis)
         if data_from_redis == {}:
             return {"message": "No credentials found", "status": 404}
         
-        print(data_from_redis['api_key'], data_from_redis['api_secret'])
 
         api = tradeapi.REST(data_from_redis['api_key'], data_from_redis['api_secret'], base_url="https://paper-api.alpaca.markets")
         total_cash = api.get_account().cash
@@ -255,7 +248,6 @@ async def store_and_start_new_session(request_body: Session):
         end_time_dt = end_time_dt - Timedelta(hours=2)
         now = datetime.now()
         time_remaining = end_time_dt - now
-        print(time_remaining)
 
         task = asyncio.create_task(check_and_stop_session(request_body.chat_id, end_time_dt))
         ONGOING_SESSION[request_body.chat_id] = task
@@ -264,13 +256,10 @@ async def store_and_start_new_session(request_body: Session):
         # asyncio.create_task(check_and_stop_session(request_body.chat_id, end_time_dt))
     
         CHAT_ID = request_body.chat_id
-        print("status: 200", "message: Session saved and started succesfully")
         return {"status": 200, "message": "Session saved and started succesfully"}    
 
     except Exception as e:
-        print("status :500, message :Internal server error")
         return{"status": 500, "message": "Internal server error"}
-        print(e)        
 
 @app.post("/stop_session/")
 async def stop_session(request_body: Session):
@@ -284,7 +273,6 @@ async def check_and_stop_session(chat_id: str, end_time: datetime):
             await asyncio.sleep(60)
             now = datetime.now()
             time_remaining = end_time - now
-            print(f"Time remaining till end_time: {time_remaining}")
             if now >= end_time:
                 response = stop_session_for_chat_id(chat_id)
                 trade_counter = response.get('counter')

@@ -22,8 +22,6 @@ def listen_for_trades():
         if message['type'] == 'message':
             # The message data is already decoded, thanks to decode_responses=True
             trade_info = message['data']
-            print(trade_info)
-            print(type(trade_info))
             
             parts = trade_info.split('# ')
             chat_id = parts[1]
