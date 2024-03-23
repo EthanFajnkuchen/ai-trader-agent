@@ -25,10 +25,3 @@ steps:
       # Construct the Git repository URL with credentials
       GIT_REPO="https://$(GitUsername):$(GitPassword)@github.com/EthanFajnkuchen/ai-trader-agent.git"
       
-      # Clone your repository
-      git clone $GIT_REPO
-      
-      cd ai-trader-agent
-      
-      # Build and start your Docker containers
-      sudo docker-compose up --build
