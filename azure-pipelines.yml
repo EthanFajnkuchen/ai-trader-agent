@@ -16,6 +16,9 @@ steps:
     sshEndpoint: 'ssh-ai-trader-agent'
     runOptions: 'inline'
     inline: |
+
+      #Navigate to directory
+      cd ai-trader-agent || true
       # Stop and remove any existing docker containers and networks
       sudo docker-compose down || true
       
