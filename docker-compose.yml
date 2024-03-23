@@ -17,7 +17,7 @@ services:
       context: .
       dockerfile: TraderAgent/Dockerfile
     ports:
-      - "8000:81"
+      - "80:81"
     environment:
       - BASE_URL_ALPACA=${BASE_URL_ALPACA}
     depends_on:
