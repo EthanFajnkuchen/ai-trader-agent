@@ -30,3 +30,4 @@ steps:
       
       # Construct the Git repository URL with credentials
       GIT_REPO="https://$(GitUsername):$(GitPassword)@github.com/EthanFajnkuchen/ai-trader-agent.git"
+      
