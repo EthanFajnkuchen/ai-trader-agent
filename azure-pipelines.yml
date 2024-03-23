@@ -20,8 +20,7 @@ steps:
       #Navigate to directory
       cd ai-trader-agent || true
       # Stop and remove any existing docker containers and networks
-      sudo docker-compose down || true
-
+      sudo docker-compose down 2>&1 || true
       #Navigate to root
       cd .. || true
       
@@ -30,4 +29,3 @@ steps:
       
       # Construct the Git repository URL with credentials
       GIT_REPO="https://$(GitUsername):$(GitPassword)@github.com/EthanFajnkuchen/ai-trader-agent.git"
-      
