@@ -1,5 +1,5 @@
 trigger:
-- none  # This pipeline will only run manually or when triggered explicitly
+- main  # This pipeline will only run manually or when triggered explicitly
 
 pool:
   vmImage: 'ubuntu-latest'  # Specifies which VM image to use for the Azure Pipeline agent
