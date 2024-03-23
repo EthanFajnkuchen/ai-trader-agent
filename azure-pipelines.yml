@@ -1,19 +1,34 @@
 trigger:
-- main  # This pipeline will only run manually or when triggered explicitly
+- main
 
 pool:
-  vmImage: 'ubuntu-latest'  # Specifies which VM image to use for the Azure Pipeline agent
+  vmImage: 'ubuntu-latest'
+
+variables:
+- group: GitCredentials  # Make sure this matches the name of your variable group in Azure DevOps
 
 steps:
-- checkout: none  # This pipeline doesn't require access to your code repository
+- checkout: none
 
 - task: SSH@0
-  displayName: 'Test SSH Connection and Docker Command'
+  displayName: 'Deploy ai-trader-agent'
   inputs:
-    sshEndpoint: 'ssh-ai-trader-agent'  # The name of your SSH service connection in Azure DevOps
+    sshEndpoint: 'ssh-ai-trader-agent'
     runOptions: 'inline'
     inline: |
-      # Execute docker ps command to list all containers
-      sudo docker ps
-
-      # Optionally, you can add more commands here to test other functionalities
+      # Stop and remove any existing docker containers and networks
+      sudo docker-compose down || true
+      
+      # Remove the existing directory, if it exists
+      rm -r ai-trader-agent || true
+      
+      # Construct the Git repository URL with credentials
+      GIT_REPO="https://$(GitUsername):$(GitPassword)@github.com/EthanFajnkuchen/ai-trader-agent.git"
+      
+      # Clone your repository
+      git clone $GIT_REPO
+      
+      cd ai-trader-agent
+      
+      # Build and start your Docker containers
+      sudo docker-compose up --build
